@@ -1,4 +1,5 @@
 version: '3.8'
+
 services:
   app:
     build: .
@@ -9,6 +10,10 @@ services:
       - .:/app
     restart: always
     command: python app.py  # Certifique-se de que o comando está correto para iniciar seu app
+    environment:
+      - FLASK_ENV=production  # Configurar o ambiente Flask (opcional, mas útil em produção)
+    networks:
+      - app-network  # Definir a rede personalizada para comunicação entre contêineres
 
   nginx:
     image: nginx:alpine
@@ -18,5 +23,11 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf  # Configuração do Nginx
     depends_on:
-      - app
+      - app  # Garante que o Nginx espere o app estar pronto
     restart: always
+    networks:
+      - app-network  # A mesma rede do contêiner app para facilitar a comunicação
+
+networks:
+  app-network:
+    driver: bridge  # Usar o driver padrão de rede bridge para comunicação entre os contêineres
