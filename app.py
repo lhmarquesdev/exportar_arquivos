@@ -1054,7 +1054,7 @@ def gerar_csv(chats_list, sid: str, job_id: str, tokens_pool, req_start, req_end
 
             for (texto, is_me, data_iso) in msgs:
                 remetente = "Você" if is_me else "Contato"
-                # Remover a f-string e usar concatenação de strings
+                # Substituindo a f-string por concatenação
                 texto_processado = (texto or '').replace(';', ',').replace('\n', ' ').strip()
                 msg_line = data_iso + " - " + remetente + ": " + texto_processado
                 writer.writerow([protocolo, contato, numero, contato_id, org, canal, pesquisa, msg_line])
