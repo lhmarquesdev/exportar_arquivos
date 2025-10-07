@@ -1,0 +1,22 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    container_name: app_backend
+    expose:
+      - "5000"  # Expor a porta interna do contêiner (não mapeada diretamente para a máquina host)
+    volumes:
+      - .:/app
+    restart: always
+    command: python app.py  # Certifique-se de que o comando está correto para iniciar seu app
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx_proxy
+    ports:
+      - "80:80"  # Mapeando a porta 80 para o domínio
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf  # Configuração do Nginx
+    depends_on:
+      - app
+    restart: always
