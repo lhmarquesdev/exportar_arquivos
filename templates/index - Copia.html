@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exportar Histórico de Chats - WesccTech</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary-dark: #132432;
+      --primary-blue: #3498db;
+      --background-light: #ecf0f1;
+      --white: #ffffff;
+      --text-dark: #2c3e50;
+      --text-light: #7f8c8d;
+      --border-light: #bdc3c7;
+      --success-green: #27ae60;
+      --danger: #e74c3c;
+      --shadow-light: 0 1px 3px rgba(0, 0, 0, 0.1);
+      --shadow-medium: 0 2px 8px rgba(0, 0, 0, 0.1);
+      --radius: 6px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--background-light); color: var(--text-dark); line-height: 1.6; min-height: 100vh; }
+    .header { background: var(--primary-dark); color: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-medium); }
+    .header-left { display: flex; align-items: center; gap: 15px; }
+    .logo { display: flex; align-items: center; gap: 8px; font-size: 1.1rem; font-weight: 600; }
+    .logo img { height: 32px; width: auto; }
+    .container { max-width: 1400px; margin: 0 auto; display: block; min-height: calc(100vh - 60px); padding: 20px; }
+    .main-content { width: 100%; background: white; display: flex; flex-direction: column; box-shadow: var(--shadow-medium); border-radius: var(--radius); overflow: hidden; }
+    .content-header { background: var(--background-light); padding: 20px 30px; border-bottom: 1px solid var(--border-light); display: flex; justify-content: center; align-items: center; }
+    .content-title { font-size: 0.9rem; font-weight: 600; color: var(--text-dark); text-transform: uppercase; letter-spacing: 0.3px; }
+    .filters-section { padding: 30px; background: white; border-bottom: 1px solid var(--border-light); }
+    .filter-header { text-align: center; margin-bottom: 30px; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; margin-bottom: 30px; }
+    .form-group { position: relative; }
+    .form-group.full-width { grid-column: 1 / -1; }
+    .form-label { display: block; font-weight: 600; color: var(--text-dark); margin-bottom: 8px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.3px; }
+    .form-input, .form-select { width: 100%; padding: 12px 16px; border: 1px solid var(--border-light); border-radius: var(--radius); font-size: 0.95rem; transition: all 0.3s ease; background: white; color: var(--text-dark); font-family: inherit; }
+    .form-input:focus, .form-select:focus { outline: none; border-color: var(--primary-blue); box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2); }
+    .form-input::placeholder { color: var(--text-light); }
+    .date-group { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 24px; border: none; border-radius: var(--radius); font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; text-decoration: none; font-family: inherit; text-transform: uppercase; letter-spacing: 0.3px; }
+    .btn-primary { background: var(--primary-dark); color: white; box-shadow: var(--shadow-light); }
+    .btn-primary:hover:not(:disabled) { background: #34495e; transform: translateY(-1px); box-shadow: var(--shadow-medium); }
+    .btn-primary:disabled { background: var(--text-light); cursor: not-allowed; }
+    .btn-outline { background: white; border: 1px solid var(--border-light); color: var(--text-dark); }
+    .btn-outline:hover { border-color: var(--primary-blue); color: var(--primary-blue); }
+    .results-section { flex: 1; padding: 30px; background: white; }
+    .results-table { width: 100%; border-collapse: collapse; background: white; border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-light); }
+    .results-table th { background: var(--background-light); padding: 15px; text-align: left; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-dark); border-bottom: 1px solid var(--border-light); }
+    .results-table td { padding: 15px; border-bottom: 1px solid #f8f9fa; font-size: 0.9rem; vertical-align: top; }
+    .results-table tr:hover { background: #f8f9fa; }
+    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+    .status-finalizado { background: #d4edda; color: #155724; }
+    .status-aguardando { background: #fff3cd; color: #856404; }
+    .status-manual { background: #cce5ff; color: #004085; }
+    .status-section { margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: var(--radius); border: 1px solid var(--border-light); }
+    .status-message { font-size: 1rem; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; font-weight: 500; }
+    .status-icon { font-size: 1.1rem; color: var(--primary-blue); }
+    .progress-container { background: #e9ecef; border-radius: 4px; height: 8px; overflow: hidden; margin-bottom: 8px; }
+    .progress-bar { height: 100%; background: var(--success-green); width: 0%; border-radius: 4px; transition: width 0.4s ease; }
+    .progress-text { font-size: 0.85rem; color: var(--text-light); font-weight: 500; }
+    .download-link { display: inline-flex; align-items: center; gap: 6px; color: var(--primary-blue); text-decoration: none; font-weight: 600; font-size: 0.9rem; padding: 8px 12px; border-radius: var(--radius); background: rgba(52, 152, 219, 0.1); transition: all 0.3s ease; }
+    .download-link:hover { background: rgba(52, 152, 219, 0.2); }
+    .loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #e9ecef; border-radius: 50%; border-top-color: var(--primary-blue); animation: spin 1s ease-in-out infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .pagination { display: flex; align-items: center; gap: 15px; margin-top: 20px; padding: 20px 0; border-top: 1px solid var(--border-light); }
+    .pagination-info { font-size: 0.9rem; color: var(--text-light); }
+    .pagination-select { padding: 6px 12px; border: 1px solid var(--border-light); border-radius: var(--radius); font-size: 0.9rem; background: white; }
+
+    /* Modal */
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: center; justify-content: center; }
+    .modal { width: min(720px, 95vw); background: #fff; border-radius: 10px; box-shadow: var(--shadow-medium); overflow: hidden; transform: translateY(8px); opacity: 0; transition: all .2s ease; }
+    .modal.show { transform: translateY(0); opacity: 1; }
+    .modal-header { padding: 14px 18px; background: var(--background-light); border-bottom: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between; }
+    .modal-title { font-weight: 700; }
+    .modal-close { border: none; background: none; font-size: 1.2rem; cursor: pointer; color: var(--text-light); }
+    .modal-body { padding: 18px; }
+    .kv { display: grid; grid-template-columns: 160px 1fr; gap: 10px 16px; margin-bottom: 16px; }
+    .kv b { color: var(--text-light); }
+    .filters-box { background: #f8f9fa; border: 1px solid var(--border-light); padding: 12px; border-radius: 8px; font-size: .92rem; max-height: 220px; overflow: auto; }
+    .modal-footer { padding: 14px 18px; background: #fafafa; border-top: 1px solid var(--border-light); display: flex; gap: 10px; justify-content: flex-end; }
+    .btn-danger { background: #e74c3c; color: #fff; }
+    .btn-danger:hover { filter: brightness(.95); }
+    .muted { color: var(--text-light); }
+    
+    /* Estilos para a coluna de ações */
+    .actions-container { display: flex; align-items: center; gap: 8px; }
+    .btn-delete { background: none; border: none; color: #e74c3c; cursor: pointer; padding: 8px; border-radius: 4px; transition: background-color 0.2s; }
+    .btn-delete:hover { background-color: rgba(231, 76, 60, 0.1); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">
+        Exportador de Atendimentos
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="main-content">
+      <div class="content-header"><div class="content-title">Filtrar Por</div></div>
+
+      <div class="filters-section">
+        <div class="filter-header">
+        </div>
+
+        <form id="exportarForm">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="statusSel" class="form-label">Status</label>
+              <select name="status" id="statusSel" class="form-select">
+                <option value="">Todos os status</option>
+                <option value="1">Aguardando</option>
+                <option value="2">Manual</option>
+                <option value="3">Finalizado</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="cliente" class="form-label">Cliente</label>
+              <input type="text" name="cliente" id="cliente" class="form-input" placeholder="Numero do Cliente">
+            </div>
+            <div class="form-group">
+              <label for="usuario" class="form-label">Usuário</label>
+              <select name="usuario" id="usuario" class="form-select">
+                <option value="">Todos os usuários</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="canal" class="form-label">Canal</label>
+              <select name="canal" id="canal" class="form-select">
+                <option value="">Todos os canais</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="setor" class="form-label">Setor</label>
+              <select name="setor" id="setor" class="form-select">
+                <option value="">Todos os setores</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="protocolo" class="form-label">Protocolo</label>
+              <input type="text" name="protocolo" id="protocolo" class="form-input" placeholder="Número do protocolo">
+            </div>
+            <div class="form-group full-width">
+              <label class="form-label">Período</label>
+              <div class="date-group">
+                <div>
+                  <label for="startDate" class="form-label">Data Inicial</label>
+                  <input type="datetime-local" name="startDate" id="startDate" class="form-input">
+                </div>
+                <div>
+                  <label for="endDate" class="form-label">Data Final</label>
+                  <input type="datetime-local" name="endDate" id="endDate" class="form-input">
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="formato" class="form-label">Formato</label>
+              <select name="formato" id="formato" class="form-select">
+                <option value="pdf">PDF</option>
+                <option value="csv">CSV</option>
+                <option value="html">HTML</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:15px;">
+            <button type="submit" id="btnExportar" class="btn btn-primary btn-full">
+              <i class="fas fa-download"></i><span id="btnText">Exportar Dados</span>
+            </button>
+          </div>
+        </form>
+
+        <div class="status-section">
+          <div id="status" class="status-message"><i class="fas fa-info-circle status-icon"></i> Sistema pronto para exportar</div>
+          <div class="progress-container"><div class="progress-bar" id="progressBar"></div></div>
+          <div class="progress-text" id="progressText">0%</div>
+        </div>
+      </div>
+
+      <div class="content-header"><div class="content-title">Histórico de Exportações</div></div>
+      <div class="results-section">
+        <table class="results-table">
+          <thead>
+            <tr>
+              <th>Descrição</th>
+              <th>Data/Hora Geração</th>
+              <th>Status</th>
+              <th>Formato / Tamanho</th>
+              <th>Progresso</th>
+              <th>Ações</th>
+              <th>Detalhes</th>
+            </tr>
+          </thead>
+          <tbody id="exportsBody"><!-- via JS --></tbody>
+        </table>
+
+        <div class="pagination">
+          <span class="pagination-info">Histórico recente</span>
+          <select class="pagination-select" id="pageSizeSel">
+            <option value="50">50 linhas</option>
+            <option value="100" selected>100 linhas</option>
+            <option value="200">200 linhas</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-action" id="refreshBtn" title="Atualizar histórico"><i class="fas fa-rotate"></i></button>
+
+  <!-- Modal Detalhes -->
+  <div class="modal-backdrop" id="modalBackdrop" aria-hidden="true">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <div class="modal-title"><i class="fas fa-file-lines"></i> Detalhes da Exportação</div>
+        <button class="modal-close" id="modalClose" title="Fechar">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="kv"><b>ID:</b> <span id="d-id"></span></div>
+        <div class="kv"><b>Status:</b> <span id="d-status"></span></div>
+        <div class="kv"><b>Formato:</b> <span id="d-format"></span></div>
+        <div class="kv"><b>Tamanho:</b> <span id="d-size"></span></div>
+        <div class="kv"><b>Criado em:</b> <span id="d-created"></span></div>
+        <div class="kv">
+          <b>Progresso:</b>
+          <div>
+            <div class="progress-container" style="margin:0 0 6px;">
+              <div class="progress-bar" id="d-progressBar" style="width:0%;"></div>
+            </div>
+            <span class="muted" id="d-progressText">0%</span>
+          </div>
+        </div>
+        <div class="kv full"><b>Descrição:</b> <div id="d-desc" class="muted"></div></div>
+        <div class="kv full"><b>Filtros:</b><div class="filters-box" id="d-filters">—</div></div>
+        <div class="kv full" id="d-error-wrap" style="display:none;"><b>Erro:</b> <div id="d-error" style="color:#e74c3c"></div></div>
+      </div>
+      <div class="modal-footer">
+        <a class="btn btn-outline" id="d-download" href="#" target="_blank" rel="noopener"><i class="fas fa-download"></i> Baixar</a>
+        <button class="btn btn-danger" id="d-delete"><i class="fas fa-trash"></i> Excluir</button>
+        <button class="btn" id="d-close">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const socket = io(); let sid = null; socket.on("connect", () => { sid = socket.id; });
+
+    const form = document.getElementById("exportarForm");
+    const btn = document.getElementById("btnExportar");
+    const statusDiv = document.getElementById("status");
+    const progressBar = document.getElementById("progressBar");
+    const progressText = document.getElementById("progressText");
+    const tbody = document.getElementById("exportsBody");
+    const pageSizeSel = document.getElementById("pageSizeSel");
+    const refreshBtn = document.getElementById("refreshBtn");
+
+    // modal refs
+    const modalBackdrop = document.getElementById("modalBackdrop");
+    const modal = document.getElementById("modal");
+    const modalClose = document.getElementById("modalClose");
+    const dId = document.getElementById("d-id");
+    const dStatus = document.getElementById("d-status");
+    const dFormat = document.getElementById("d-format");
+    const dSize = document.getElementById("d-size");
+    const dCreated = document.getElementById("d-created");
+    const dProgressBar = document.getElementById("d-progressBar");
+    const dProgressText = document.getElementById("d-progressText");
+    const dDesc = document.getElementById("d-desc");
+    const dFilters = document.getElementById("d-filters");
+    const dErrorWrap = document.getElementById("d-error-wrap");
+    const dError = document.getElementById("d-error");
+    const dDownload = document.getElementById("d-download");
+    const dDelete = document.getElementById("d-delete");
+    const dClose = document.getElementById("d-close");
+
+    function openModal(){ modalBackdrop.style.display="flex"; requestAnimationFrame(()=>modal.classList.add("show")); modalBackdrop.setAttribute("aria-hidden","false"); }
+    function closeModal(){ modal.classList.remove("show"); setTimeout(()=>{modalBackdrop.style.display="none"; modalBackdrop.setAttribute("aria-hidden","true");},150); }
+    modalClose.addEventListener("click", closeModal); dClose.addEventListener("click", closeModal);
+    modalBackdrop.addEventListener("click", e => { if (e.target === modalBackdrop) closeModal(); });
+
+    function updateStatus(message, icon="fas fa-info-circle", spin=false){
+      statusDiv.innerHTML = `<i class="${icon} status-icon ${spin ? 'loading-spinner':''}"></i> ${message}`;
+    }
+    function updateProgress(percent){ const p=Math.max(0,Math.min(100,percent|0)); progressBar.style.width=p+"%"; progressText.textContent=p+"%"; }
+    function badgeStatus(st){ if(st==="done")return'<span class="status-badge status-finalizado">Finalizado</span>'; if(st==="processing"||st==="indexing")return'<span class="status-badge status-aguardando">Processando</span>'; if(st==="error")return'<span class="status-badge status-manual">Erro</span>'; return `<span class="status-badge">${st||'—'}</span>`; }
+    function humanSize(bytes){ if(!bytes||bytes<=0)return"—"; const u=["B","KB","MB","GB","TB"]; let i=0,v=bytes; while(v>=1024 && i<u.length-1){v/=1024;i++;} return `${v.toFixed(1)} ${u[i]}`; }
+    function formatFilters(f){ if(!f||typeof f!=="object")return"—"; const mapS={"1":"Aguardando","2":"Manual","3":"Finalizado"}, mapT={"2":"Individual","3":"Grupo"}; const p=[]; if(f.status)p.push(`<b>Status:</b> ${mapS[f.status]||f.status}`); p.push(`<b>Cliente:</b> ${f.cliente||"Todos"}`); p.push(`<b>Usuário:</b> ${f.usuario||"Todos"}`); p.push(`<b>Canal:</b> ${f.canal||"Todos"}`); p.push(`<b>Setor:</b> ${f.setor||"Todos"}`); p.push(`<b>Protocolo:</b> ${f.protocolo||"Todos"}`); if(f.typeChat)p.push(`<b>Tipo:</b> ${mapT[f.typeChat]||f.typeChat}`); if(f.startDate||f.endDate)p.push(`<b>Período:</b> ${f.startDate||"?"} → ${f.endDate||"?"}`); return p.join("<br>"); }
+
+    async function showDetails(id){
+      try{
+        const r = await fetch(`/api/exports/${id}`); if(!r.ok) throw new Error();
+        const e = await r.json();
+        dId.textContent = e.id;
+        dStatus.innerHTML = badgeStatus(e.status);
+        dFormat.textContent = (e.format||"—").toUpperCase();
+        dSize.textContent = humanSize(e.sizeBytes);
+        dCreated.textContent = new Date(e.createdAt||Date.now()).toLocaleString();
+        dProgressBar.style.width = (e.percent||0)+"%";
+        dProgressText.textContent = (e.percent||0)+"%";
+        dDesc.textContent = e.description || "—";
+        dFilters.innerHTML = formatFilters(e.filters);
+        if(e.error){ dErrorWrap.style.display="grid"; dError.textContent=e.error; } else { dErrorWrap.style.display="none"; dError.textContent=""; }
+        if(e.downloadUrl){ dDownload.href=e.downloadUrl; dDownload.style.display="inline-flex"; } else { dDownload.removeAttribute("href"); dDownload.style.display="none"; }
+        dDelete.onclick = async () => { if(!confirm("Excluir esta exportação?"))return; const resp=await fetch(`/api/exports/${id}/delete`,{method:"POST"}); const js=await resp.json(); if(js.ok){ closeModal(); carregarExportacoes(); } else { alert("Não foi possível excluir."); } };
+        openModal();
+      }catch{ alert("Falha ao carregar detalhes."); }
+    }
+
+    async function carregarExportacoes(){
+      try{
+        const limit = parseInt(pageSizeSel.value||"100",10);
+        const r = await fetch(`/api/exports?limit=${limit}`);
+        const lista = await r.json();
+        tbody.innerHTML = "";
+        for(const e of lista){
+          const tr = document.createElement("tr");
+          const dataGer = new Date(e.createdAt||Date.now()).toLocaleString();
+          tr.innerHTML = `
+            <td title="${(e.description||'').replace(/"/g,'&quot;')}">${e.shortDescription || e.description || "—"}</td>
+            <td>${dataGer}</td>
+            <td>${badgeStatus(e.status)}</td>
+            <td>${(e.format||"—").toUpperCase()} • ${humanSize(e.sizeBytes)}</td>
+            <td>
+              <div class="progress-container" style="margin:0;">
+                <div class="progress-bar" style="width:${e.percent||0}%;"></div>
+              </div>${e.percent||0}%
+            </td>
+            <td>
+              <div class="actions-container">
+                ${e.downloadUrl ? `<a class="download-link" href="${e.downloadUrl}" title="Baixar"><i class="fas fa-download"></i> Baixar</a>` : '<span style="color:#7f8c8d">Indisponível</span>'}
+                <button data-del="${e.id}" class="btn-delete" title="Excluir"><i class="fas fa-trash"></i></button>
+              </div>
+            </td>
+            <td><button class="btn btn-outline" data-det="${e.id}" title="Ver detalhes"><i class="fas fa-eye"></i> Detalhes</button></td>
+          `;
+          tbody.appendChild(tr);
+        }
+        document.querySelectorAll("button[data-del]").forEach(btn=>{
+          btn.addEventListener("click", async ()=>{
+            const id=btn.getAttribute("data-del");
+            if(!confirm("Excluir esta exportação?")) return;
+            const resp=await fetch(`/api/exports/${id}/delete`,{method:"POST"});
+            const js=await resp.json();
+            if(js.ok) carregarExportacoes(); else alert("Não foi possível excluir.");
+          });
+        });
+        document.querySelectorAll("button[data-det]").forEach(btn=>{
+          btn.addEventListener("click", ()=> showDetails(btn.getAttribute("data-det")));
+        });
+      }catch(err){ console.error("Falha ao carregar histórico:", err); }
+    }
+
+    form.addEventListener("submit", function(e){
+      e.preventDefault();
+      btn.disabled = true;
+      btn.innerHTML = `<div class="loading-spinner"></div><span>Exportando...</span>`;
+      updateStatus("Exportação em andamento, aguarde...", "fas fa-spinner", true);
+      updateProgress(0);
+      const formData = new FormData(form); formData.append("sid", sid);
+      fetch("/exportar",{method:"POST", body:formData})
+        .then(r=>{ if(!r.ok) throw new Error("Erro ao iniciar exportação"); return r.json(); })
+        .catch(err=>{
+          updateStatus("Erro: " + err.message, "fas fa-exclamation-triangle");
+          btn.disabled=false;
+          btn.innerHTML=`<i class="fas fa-download"></i><span id="btnText">Exportar Dados</span>`;
+          updateProgress(0);
+        });
+    });
+
+    socket.on("inicio", (d)=>{ updateStatus(`Encontrados ${d.total} chats. Iniciando exportação...`, "fas fa-search"); });
+    socket.on("indexando", (d)=>{ updateStatus(`Indexando chats... ${d.coletados} coletados`, "fas fa-cogs"); });
+    socket.on("progresso", (d)=>{ const percent=Math.round((d.atual/d.total)*100); updateProgress(percent); });
+    socket.on("concluido", (data)=>{
+      updateStatus(`Exportação concluída com sucesso! <a href="${data.url}" class="download-link"><i class="fas fa-download"></i> Baixar arquivo</a>`, "fas fa-check-circle");
+      btn.disabled=false; btn.innerHTML=`<i class="fas fa-download"></i><span id="btnText">Exportar Dados</span>`; updateProgress(100);
+      setTimeout(carregarExportacoes, 600);
+    });
+    socket.on("erro", (data)=>{
+      updateStatus("Erro: " + (data.mensagem||"Falha desconhecida"), "fas fa-exclamation-triangle");
+      btn.disabled=false; btn.innerHTML=`<i class="fas fa-download"></i><span id="btnText">Exportar Dados</span>`; updateProgress(0);
+      setTimeout(carregarExportacoes, 800);
+    });
+
+    // preencher selects via API (mesclados de todos os tokens)
+    fetch("/api/usuarios").then(r=>r.json()).then(lista=>{
+      const sel=document.getElementById("usuario");
+      lista.forEach(it=>{ const opt=document.createElement("option"); opt.value=it.id; opt.innerText=it.name; sel.appendChild(opt); });
+    }).catch(()=>console.log("Erro ao carregar usuários"));
+    fetch("/api/canais").then(r=>r.json()).then(lista=>{
+      const sel=document.getElementById("canal");
+      lista.forEach(it=>{ const opt=document.createElement("option"); opt.value=it.id; opt.innerText=it.name; sel.appendChild(opt); });
+    }).catch(()=>console.log("Erro ao carregar canais"));
+    fetch("/api/setores").then(r=>r.json()).then(lista=>{
+      const sel=document.getElementById("setor");
+      lista.forEach(it=>{ const opt=document.createElement("option"); opt.value=it.id; opt.innerText=it.name; sel.appendChild(opt); });
+    }).catch(()=>console.log("Erro ao carregar setores"));
+
+    function updateStatus(message, icon, spin){ statusDiv.innerHTML = `<i class="${icon} status-icon ${spin?'loading-spinner':''}"></i> ${message}`; }
+    function updateProgress(percent){ const p=Math.max(0,Math.min(100,percent|0)); progressBar.style.width=p+"%"; progressText.textContent=p+"%"; }
+
+    async function carregarExportacoes(){
+      try{
+        const limit = parseInt(document.getElementById("pageSizeSel").value||"100",10);
+        const r = await fetch(`/api/exports?limit=${limit}`);
+        const lista = await r.json();
+        const tbody = document.getElementById("exportsBody");
+        tbody.innerHTML = "";
+        for(const e of lista){
+          const tr = document.createElement("tr");
+          const dataGer = new Date(e.createdAt||Date.now()).toLocaleString();
+          tr.innerHTML = `
+            <td title="${(e.description||'').replace(/"/g,'&quot;')}">${e.shortDescription || e.description || "—"}</td>
+            <td>${dataGer}</td>
+            <td>${(e.status==="done")?'<span class="status-badge status-finalizado">Finalizado</span>':(e.status==="error")?'<span class="status-badge status-manual">Erro</span>':'<span class="status-badge status-aguardando">Processando</span>'}</td>
+            <td>${(e.format||"—").toUpperCase()} • ${ (e.sizeBytes ? (Math.round(e.sizeBytes/102.4)/10)+' KB' : '—') }</td>
+            <td>
+              <div class="progress-container" style="margin:0;">
+                <div class="progress-bar" style="width:${e.percent||0}%;"></div>
+              </div>${e.percent||0}%
+            </td>
+            <td>
+              <div class="actions-container">
+                ${e.downloadUrl ? `<a class="download-link" href="${e.downloadUrl}" title="Baixar"><i class="fas fa-download"></i> Baixar</a>` : '<span style="color:#7f8c8d">Indisponível</span>'}
+                <button data-del="${e.id}" class="btn-delete" title="Excluir"><i class="fas fa-trash"></i></button>
+              </div>
+            </td>
+            <td><button class="btn btn-outline" data-det="${e.id}" title="Ver detalhes"><i class="fas fa-eye"></i> Detalhes</button></td>
+          `;
+          tbody.appendChild(tr);
+        }
+        document.querySelectorAll("button[data-del]").forEach(btn=>{
+          btn.addEventListener("click", async ()=>{
+            const id=btn.getAttribute("data-del");
+            if(!confirm("Excluir esta exportação?")) return;
+            const resp=await fetch(`/api/exports/${id}/delete`,{method:"POST"});
+            const js=await resp.json();
+            if(js.ok) carregarExportacoes(); else alert("Não foi possível excluir.");
+          });
+        });
+        document.querySelectorAll("button[data-det]").forEach(btn=>{
+          btn.addEventListener("click", ()=> showDetails(btn.getAttribute("data-det")));
+        });
+      }catch(err){ console.error("Falha ao carregar histórico:", err); }
+    }
+
+    carregarExportacoes();
+    document.getElementById("pageSizeSel").addEventListener("change", carregarExportacoes);
+    document.getElementById("refreshBtn").addEventListener("click", carregarExportacoes);
+    setInterval(carregarExportacoes, 15000);
+  </script>
+</body>
+</html>
